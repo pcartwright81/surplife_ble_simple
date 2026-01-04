@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "surplife_ble_simple"
+version = "1.0.0"
+description = "Surplife BLE Simple Home Assistant Integration"
+readme = "README.md"
+authors = [
+    { name = "User", email = "user@example.com" }
+]
+license = { text = "Apache-2.0" }
+dependencies = []
+
+[project.urls]
+"Source Code" = "https://github.com/pcartwright81/surplife_ble_simple"
+"Bug Tracker" = "https://github.com/pcartwright81/surplife_ble_simple/issues"
+
+[tool.setuptools.packages.find]
+include = ["custom_components*"]
+
+[tool.isort]
+profile = "black"
+
+[tool.black]
+line-length = 88
+
+# Development dependencies
+[project.optional-dependencies]
+dev = [
+    "black",
+    "isort",
+    "flake8",
+    "bleak", # For local development intellisense
+]
