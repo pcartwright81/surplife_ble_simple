@@ -1,4 +1,5 @@
 """Surplife BLE Simple Light Platform."""
+
 from __future__ import annotations
 
 import logging
@@ -6,6 +7,7 @@ from typing import Any
 
 from bleak import BleakClient
 from bleak.exc import BleakError
+from bleak_retry_connector import establish_connection
 
 from homeassistant.components.light import (
     ATTR_RGB_COLOR,
@@ -18,14 +20,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-DOMAIN = "surplife_ble_simple"
-SERVICE_UUID = "0000e04c-0000-1000-8000-00805f9b34fb"
-WRITE_UUID = "0000a04c-0000-1000-8000-00805f9b34fb"
-
-# Packet Constants
-CMD_ON = [0xA0, 0x11, 0x04, 0x01, 0xB1, 0x21]
-CMD_OFF = [0xA0, 0x11, 0x04, 0x00, 0x70, 0xE1]
-HEADER_RGB = [0xA0, 0x04, 0x1A]
+from .const import DOMAIN, WRITE_UUID, CMD_ON, CMD_OFF, HEADER_RGB
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -50,7 +45,7 @@ class SurplifeBLELight(LightEntity):
 
     _attr_has_entity_name = True
     _attr_supported_color_modes = {ColorMode.RGB, ColorMode.ONOFF}
-    _attr_color_mode = ColorMode.ONOFF # Default, upgrades to RGB when used
+    _attr_color_mode = ColorMode.ONOFF  # Default, upgrades to RGB when used
 
     def __init__(
         self,
@@ -90,7 +85,7 @@ class SurplifeBLELight(LightEntity):
         else:
             self._attr_color_mode = ColorMode.ONOFF
             await self._send_command_raw(CMD_ON)
-        
+
         self._is_on = True
         self.async_write_ha_state()
 
@@ -118,21 +113,24 @@ class SurplifeBLELight(LightEntity):
 
     async def _send_command_raw(self, packet: list[int]) -> None:
         """Send raw command to device."""
-        # We need to re-fetch the device object to ensure it's fresh for the connection
-        # But for now, we rely on the one passed or try to get a client.
-        # Home Assistant recommends using `bleak_retry_connector` or getting a client via helper.
-        # Since I didn't verify if `bleak_retry_connector` is available in the user's env (it should be standard in HA),
-        # I'll use the basic `BleakClient` dealing with the address, but getting the device from HA is safer.
-        
-        # NOTE: In a real HA integration, we should use `async_ble_device_from_address` inside the call 
-        # to ensure we have the latest BLEDevice object if it rotates.
-        ble_device = bluetooth.async_ble_device_from_address(self.hass, self._attr_unique_id)
+        ble_device = bluetooth.async_ble_device_from_address(
+            self.hass, self._attr_unique_id
+        )
         if not ble_device:
             _LOGGER.error("Device %s not found", self._attr_unique_id)
             return
 
         try:
-            async with BleakClient(ble_device) as client:
-                await client.write_gatt_char(WRITE_UUID, bytearray(packet), response=True)
+            client = await establish_connection(
+                BleakClient,
+                ble_device,
+                self._attr_unique_id,
+            )
+            try:
+                await client.write_gatt_char(
+                    WRITE_UUID, bytearray(packet), response=True
+                )
+            finally:
+                await client.disconnect()
         except BleakError as e:
             _LOGGER.error("Failed to send command to %s: %s", self._attr_unique_id, e)

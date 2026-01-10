@@ -1,20 +1,23 @@
 """Config flow for Surplife BLE Simple integration."""
+
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 import voluptuous as vol
 
 from homeassistant import config_entries
 from homeassistant.components import bluetooth
-from homeassistant.core import callback
+
 from homeassistant.data_entry_flow import FlowResult
 
-domain = "surplife_ble_simple"
-SERVICE_UUID = "0000e04c-0000-1000-8000-00805f9b34fb"
+from .const import DOMAIN, SERVICE_UUID
+
+_LOGGER = logging.getLogger(__name__)
 
 
-class ConfigFlow(config_entries.ConfigFlow, domain=domain):
+class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Surplife BLE Simple."""
 
     VERSION = 1
@@ -44,10 +47,24 @@ class ConfigFlow(config_entries.ConfigFlow, domain=domain):
         # Scan for devices with specific UUID
         current_addresses = self._async_current_ids()
         for discovery_info in bluetooth.async_discovered_service_info(self.hass):
+            # Debug: Log ALL discovered devices to help identify the Surplife device
+            _LOGGER.debug(
+                "Discovered BLE device: name=%s, address=%s, service_uuids=%s, manufacturer_data=%s",
+                discovery_info.name,
+                discovery_info.address,
+                discovery_info.service_uuids,
+                discovery_info.manufacturer_data,
+            )
+
+            # Case-insensitive UUID matching
+            service_uuids_lower = [
+                uuid.lower() for uuid in discovery_info.service_uuids
+            ]
             if (
-                SERVICE_UUID in discovery_info.service_uuids
+                SERVICE_UUID.lower() in service_uuids_lower
                 and discovery_info.address not in current_addresses
             ):
+                _LOGGER.debug("Found matching Surplife device: %s", discovery_info.name)
                 self._discovered_devices[discovery_info.address] = discovery_info
 
         if not self._discovered_devices:
