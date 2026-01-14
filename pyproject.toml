@@ -7,11 +7,9 @@ name = "surplife_ble_simple"
 version = "1.0.0"
 description = "Surplife BLE Simple Home Assistant Integration"
 readme = "README.md"
-authors = [
-    { name = "User", email = "user@example.com" }
-]
+authors = [{ name = "Patrick Cartwright", email = "pcartwright81@gmail.com" }]
 license = { text = "Apache-2.0" }
-dependencies = []
+dependencies = ["bleak", "bleak-retry-connector"]
 
 [project.urls]
 "Source Code" = "https://github.com/pcartwright81/surplife_ble_simple"
@@ -32,5 +30,5 @@ dev = [
     "black",
     "isort",
     "flake8",
-    "bleak", # For local development intellisense
+    "homeassistant",         # For local development intellisense
 ]

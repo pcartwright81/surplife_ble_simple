@@ -6,6 +6,7 @@ import logging
 from typing import Any
 
 from bleak import BleakClient
+from bleak.backends.device import BLEDevice
 from bleak.exc import BleakError
 from bleak_retry_connector import establish_connection
 
@@ -44,12 +45,12 @@ class SurplifeBLELight(LightEntity):
     """Surplife BLE Light Entity."""
 
     _attr_has_entity_name = True
-    _attr_supported_color_modes = {ColorMode.RGB, ColorMode.ONOFF}
-    _attr_color_mode = ColorMode.ONOFF  # Default, upgrades to RGB when used
+    _attr_supported_color_modes = {ColorMode.RGB}
+    _attr_color_mode = ColorMode.RGB
 
     def __init__(
         self,
-        ble_device: bluetooth.BluetoothServiceInfoBleak,
+        ble_device: BLEDevice,
         name: str,
     ) -> None:
         """Initialize the light."""
@@ -80,10 +81,9 @@ class SurplifeBLELight(LightEntity):
         if ATTR_RGB_COLOR in kwargs:
             rgb = kwargs[ATTR_RGB_COLOR]
             self._rgb_color = rgb
-            self._attr_color_mode = ColorMode.RGB
             await self._send_rgb_command(rgb)
         else:
-            self._attr_color_mode = ColorMode.ONOFF
+            # Turn on with last known color
             await self._send_command_raw(CMD_ON)
 
         self._is_on = True
