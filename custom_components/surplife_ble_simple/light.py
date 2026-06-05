@@ -46,12 +46,8 @@ async def async_setup_entry(
 ) -> None:
     """Set up the Light platform."""
     address = config_entry.data["address"]
-    ble_device = bluetooth.async_ble_device_from_address(hass, address)
-    if not ble_device:
-        _LOGGER.error("Device not found at address %s", address)
-        return
-
-    async_add_entities([SurplifeBLELight(ble_device, config_entry.title)])
+    # Create the entity even if device isn't found yet - it will connect later
+    async_add_entities([SurplifeBLELight(hass, address, config_entry.title)])
 
 
 class SurplifeBLELight(LightEntity):
@@ -63,16 +59,17 @@ class SurplifeBLELight(LightEntity):
 
     def __init__(
         self,
-        ble_device: BLEDevice,
+        hass: HomeAssistant,
+        address: str,
         name: str,
     ) -> None:
         """Initialize the light."""
-        self._ble_device = ble_device
-        self._address = ble_device.address
+        self.hass = hass
+        self._address = address
         self._attr_name = name
-        self._attr_unique_id = ble_device.address
+        self._attr_unique_id = address
         self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, ble_device.address)},
+            identifiers={(DOMAIN, address)},
             name=name,
             manufacturer="Surplife",
         )
@@ -84,9 +81,14 @@ class SurplifeBLELight(LightEntity):
         self._shutting_down = False
 
     @property
+    def _is_connected(self) -> bool:
+        """Return True if connected to the device."""
+        return self._client is not None and self._client.is_connected
+
+    @property
     def assumed_state(self) -> bool:
         """Return True if unable to access real state of the entity."""
-        return self._client is None or not self._client.is_connected
+        return not self._is_connected
 
     @property
     def is_on(self) -> bool | None:
@@ -228,7 +230,7 @@ class SurplifeBLELight(LightEntity):
 
         # Note: State will be updated via notification callback
         # Only update optimistically if not connected
-        if not self.available:
+        if not self._is_connected:
             self._is_on = True
             self.async_write_ha_state()
 
@@ -238,7 +240,7 @@ class SurplifeBLELight(LightEntity):
 
         # Note: State will be updated via notification callback
         # Only update optimistically if not connected
-        if not self.available:
+        if not self._is_connected:
             self._is_on = False
             self.async_write_ha_state()
 
